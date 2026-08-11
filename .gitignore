@@ -1,0 +1,33 @@
+# Data
+data/
+*.csv
+*.zip
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.env
+venv/
+env/
+.pytest_cache/
+
+# Power BI
+*.pbix
+*.pbit
+
+# Web App (Node)
+node_modules/
+build/
+dist/
+.next/
+.svelte-kit/
+.nuxt/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
