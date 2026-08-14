@@ -1,6 +1,7 @@
----------------------------------------
---------- CARRIER PERFORMANCE --------- 
----------------------------------------
+
+-------------------------------------------------
+------- CATEGORY 1 : CARRIER PERFORMANCE -------
+-------------------------------------------------
 
 -- Q1 What's the average departure delay by airline?
 
@@ -191,4 +192,189 @@ ORDER BY total_flights DESC;
  GoJet Airlines, LLC d/b/a United Express  |          8463
 (21 rows)
 
+*/
+
+----------------------------------------
+------- CATEGORY 2 : AIRPORTS --------
+----------------------------------------
+
+-- Q1.  What's the average departure delay by origin airport?
+
+SELECT "Origin",
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY "Origin"
+HAVING COUNT(*) > 500  -- filter out tiny airports with too few flights to be meaningful
+ORDER BY avg_dep_delay DESC
+LIMIT 20;
+
+/*OUTPUT
+ Origin | total_flights | avg_dep_delay
+--------+---------------+---------------
+ ASE    |           950 |         28.43
+ PGD    |           983 |         25.12
+ EYW    |          1260 |         23.92
+ PBI    |          3503 |         23.20
+ RAP    |           620 |         22.75
+ JAC    |           604 |         21.90
+ SRQ    |          2234 |         21.52
+ FNT    |           506 |         21.15
+ EWR    |         20058 |         20.89
+ SJU    |          4238 |         20.84
+ MDW    |          9796 |         20.32
+ MCO    |         20218 |         19.85
+ PWM    |          1519 |         19.56
+ JFK    |         18455 |         19.24
+ FLL    |         12184 |         18.99
+ BWI    |         11436 |         18.69
+ MIA    |         15723 |         18.32
+ DEN    |         37297 |         18.22
+ DRO    |           511 |         17.86
+ RSW    |          5834 |         17.81
+*/
+
+-- Q2. What's the average arrival delay by destination airport?
+SELECT "Dest",
+       COUNT(*) AS total_flights,
+       ROUND(AVG("ArrDelay")::numeric, 2) AS avg_arr_delay
+FROM flights
+WHERE "ArrDelay" IS NOT NULL
+GROUP BY "Dest"
+HAVING COUNT(*) > 500
+ORDER BY avg_arr_delay DESC
+LIMIT 20;
+
+/*OUTPUT
+Dest | total_flights | avg_arr_delay
+------+---------------+---------------
+ PGD  |           982 |         39.36
+ PIE  |          1199 |         23.66
+ SFB  |          1339 |         23.32
+ ASE  |           972 |         22.50
+ PBI  |          3666 |         19.12
+ AZA  |           890 |         17.13
+ PWM  |          1485 |         16.92
+ MCO  |         20027 |         16.43
+ ISP  |           799 |         16.16
+ FNT  |           529 |         15.94
+ EWR  |         19875 |         15.22
+ SJU  |          4246 |         15.14
+ FWA  |           863 |         14.77
+ SRQ  |          2321 |         14.19
+ HPN  |          1709 |         13.82
+ RAP  |           620 |         13.67
+ BDL  |          3258 |         13.30
+ RSW  |          5785 |         13.18
+ FAR  |           866 |         13.17
+ FLL  |         12118 |         13.10
+(20 rows)
+*/
+
+-- Which airports have the highest cancellation rate?
+SELECT "Origin",
+       COUNT(*) AS total_flights,
+       COUNT(*) FILTER (WHERE "Cancelled" = true) AS cancelled_flights,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE "Cancelled" = true) / COUNT(*), 2) AS cancellation_rate_pct
+FROM flights
+GROUP BY "Origin"
+HAVING COUNT(*) > 500
+ORDER BY cancellation_rate_pct DESC
+LIMIT 20;
+
+/*OUTPUT
+Origin | total_flights | cancelled_flights | cancellation_rate_pct
+--------+---------------+-------------------+-----------------------
+ ASE    |          1043 |                93 |                  8.92
+ PWM    |          1639 |               123 |                  7.50
+ LGA    |         24596 |              1579 |                  6.42
+ EWR    |         21383 |              1358 |                  6.35
+ BTV    |          1464 |                86 |                  5.87
+ BGR    |           776 |                44 |                  5.67
+ ROC    |          2338 |               128 |                  5.47
+ DCA    |         21219 |              1124 |                  5.30
+ FAI    |           687 |                36 |                  5.24
+ HPN    |          1753 |                91 |                  5.19
+ BUF    |          2962 |               152 |                  5.13
+ PBI    |          3688 |               188 |                  5.10
+ ALB    |          2141 |               104 |                  4.86
+ JFK    |         19325 |               908 |                  4.70
+ MHT    |          1022 |                48 |                  4.70
+ ORF    |          3361 |               158 |                  4.70
+ BDL    |          3326 |               156 |                  4.69
+ PVD    |          2310 |               108 |                  4.68
+ SYR    |          2305 |               106 |                  4.60
+ PIA    |           529 |                24 |                  4.54
+(20 rows)
+*/
+
+-- Q4. Which origin airports have the highest flight volume (busiest hubs)?
+
+SELECT "Origin", COUNT(*) AS total_flights
+FROM flights
+GROUP BY "Origin"
+ORDER BY total_flights DESC
+LIMIT 20;
+
+/*OUTPUT
+ Origin | total_flights
+--------+---------------
+ ATL    |         45189
+ ORD    |         42344
+ DFW    |         39193
+ DEN    |         38385
+ CLT    |         30883
+ LAX    |         27489
+ LGA    |         24596
+ SEA    |         24168
+ LAS    |         23898
+ PHX    |         23588
+ EWR    |         21383
+ IAH    |         21252
+ DCA    |         21219
+ MCO    |         20821
+ BOS    |         19355
+ JFK    |         19325
+ DTW    |         18876
+ SFO    |         18350
+ MSP    |         17448
+ MIA    |         16251
+(20 rows)
+*/
+
+-- Q5. Do the busiest airports also have the worst delays, or is congestion not correlated with volume?
+SELECT "Origin",
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY "Origin"
+ORDER BY total_flights DESC
+LIMIT 20;
+
+/*OUTPUT
+ Origin | total_flights | avg_dep_delay
+--------+---------------+---------------
+ ATL    |         44325 |         11.57
+ ORD    |         41015 |         12.47
+ DFW    |         37863 |         13.77
+ DEN    |         37297 |         18.22
+ CLT    |         29859 |         11.80
+ LAX    |         27051 |         10.80
+ SEA    |         23694 |          8.12
+ LAS    |         23415 |         14.20
+ PHX    |         23179 |         11.83
+ LGA    |         23073 |         16.17
+ IAH    |         20746 |         11.88
+ MCO    |         20218 |         19.85
+ DCA    |         20141 |         15.32
+ EWR    |         20058 |         20.89
+ BOS    |         18520 |         14.82
+ JFK    |         18455 |         19.24
+ DTW    |         18437 |         12.25
+ SFO    |         18025 |          8.84
+ MSP    |         17145 |         12.12
+ MIA    |         15723 |         18.32
+(20 rows)
 */
