@@ -506,3 +506,156 @@ GROUP BY day_type;
  Weekend  |        270781 |         15.16
 (2 rows)
 */
+
+---------------------------------------------------
+----- CATEGORY 4 : ROUTE-LEVEL ANALYSIS -----
+---------------------------------------------------
+
+-- Q1. What are the top 15 busiest routes (origin-destination pairs)?
+SELECT "Origin", "Dest",
+       COUNT(*) AS total_flights
+FROM flights
+GROUP BY "Origin", "Dest"
+ORDER BY total_flights DESC
+LIMIT 15;
+
+/*OUTPUT
+Origin | Dest | total_flights
+--------+------+---------------
+ ORD    | LGA  |          1661
+ DCA    | BOS  |          1650
+ SFO    | LAX  |          1649
+ LGA    | ORD  |          1644
+ BOS    | DCA  |          1595
+ LAX    | SFO  |          1594
+ LAX    | LAS  |          1494
+ JFK    | LAX  |          1483
+ LAS    | LAX  |          1453
+ LAX    | JFK  |          1411
+ HNL    | OGG  |          1378
+ OGG    | HNL  |          1373
+ LGA    | BOS  |          1255
+ BOS    | LGA  |          1231
+ ATL    | MCO  |          1146
+(15 rows)
+*/
+
+-- Q2. Which routes have the worst average delay?
+SELECT "Origin", "Dest",
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY "Origin", "Dest"
+HAVING COUNT(*) > 200  -- filter out rare routes for statistical meaning
+ORDER BY avg_dep_delay DESC
+LIMIT 15;
+
+/*OUTPUT
+ Origin | Dest | total_flights | avg_dep_delay
+--------+------+---------------+---------------
+ SAV    | JFK  |           206 |         44.64
+ RSW    | BOS  |           304 |         34.42
+ JFK    | MCO  |           677 |         34.01
+ HPN    | PBI  |           224 |         32.92
+ LGA    | MCO  |           549 |         32.35
+ PBI    | JFK  |           290 |         31.80
+ BOS    | PBI  |           240 |         31.77
+ JFK    | FLL  |           693 |         31.49
+ LGA    | PBI  |           346 |         30.92
+ FLL    | EWR  |           685 |         30.85
+ FLL    | JFK  |           696 |         30.43
+ JFK    | PBI  |           316 |         30.41
+ EWR    | STL  |           216 |         30.04
+ JFK    | ATL  |           427 |         29.64
+ FLL    | BOS  |           409 |         29.49
+(15 rows)
+*/
+
+-- Q3. Which routes have the highest cancellation rate?
+SELECT "Origin", "Dest",
+       COUNT(*) AS total_flights,
+       COUNT(*) FILTER (WHERE "Cancelled" = true) AS cancelled_flights,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE "Cancelled" = true) / COUNT(*), 2) AS cancellation_rate_pct
+FROM flights
+GROUP BY "Origin", "Dest"
+HAVING COUNT(*) > 200
+ORDER BY cancellation_rate_pct DESC
+LIMIT 15;
+
+/*OUTPUT
+ Origin | Dest | total_flights | cancelled_flights | cancellation_rate_pct
+--------+------+---------------+-------------------+-----------------------
+ ROC    | EWR  |           202 |                26 |                 12.87
+ BNA    | EWR  |           328 |                42 |                 12.80
+ PWM    | EWR  |           206 |                26 |                 12.62
+ EWR    | BUF  |           223 |                28 |                 12.56
+ EWR    | CMH  |           263 |                32 |                 12.17
+ BUF    | EWR  |           210 |                25 |                 11.90
+ DEN    | ASE  |           374 |                44 |                 11.76
+ ASE    | DEN  |           352 |                41 |                 11.65
+ DCA    | EWR  |           806 |                87 |                 10.79
+ DCA    | PWM  |           207 |                22 |                 10.63
+ EWR    | STL  |           240 |                25 |                 10.42
+ CHO    | LGA  |           223 |                22 |                  9.87
+ LGA    | CLE  |           470 |                46 |                  9.79
+ ROC    | JFK  |           257 |                25 |                  9.73
+ JFK    | ROC  |           247 |                24 |                  9.72
+(15 rows)
+*/
+
+-- Q4. Does flight distance correlate with delay (short-haul vs long-haul)?
+SELECT
+  CASE
+    WHEN "Distance" < 500 THEN 'Short-haul (<500mi)'
+    WHEN "Distance" BETWEEN 500 AND 1500 THEN 'Medium-haul (500-1500mi)'
+    ELSE 'Long-haul (>1500mi)'
+  END AS haul_type,
+  COUNT(*) AS total_flights,
+  ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY haul_type
+ORDER BY avg_dep_delay DESC;
+
+/*OUTPUT
+        haul_type         | total_flights | avg_dep_delay
+--------------------------+---------------+---------------
+ Medium-haul (500-1500mi) |        493388 |         14.41
+ Long-haul (>1500mi)      |        113406 |         13.98
+ Short-haul (<500mi)      |        363435 |         11.07
+(3 rows)
+*/
+
+-- Q5. What's the average delay for the top 10 busiest routes specifically (busy ≠ necessarily bad, worth checking directly)?
+WITH top_routes AS (
+  SELECT "Origin", "Dest"
+  FROM flights
+  GROUP BY "Origin", "Dest"
+  ORDER BY COUNT(*) DESC
+  LIMIT 10
+)
+SELECT f."Origin", f."Dest",
+       COUNT(*) AS total_flights,
+       ROUND(AVG(f."DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights f
+JOIN top_routes t ON f."Origin" = t."Origin" AND f."Dest" = t."Dest"
+WHERE f."DepDelay" IS NOT NULL
+GROUP BY f."Origin", f."Dest"
+ORDER BY total_flights DESC;
+
+/*OUTPUT
+ Origin | Dest | total_flights | avg_dep_delay 
+--------+------+---------------+---------------
+ SFO    | LAX  |          1631 |          8.15
+ LAX    | SFO  |          1573 |          7.15
+ ORD    | LGA  |          1551 |         16.98
+ DCA    | BOS  |          1547 |         14.25
+ LGA    | ORD  |          1539 |         15.33
+ BOS    | DCA  |          1493 |         12.81
+ LAX    | LAS  |          1479 |         12.30
+ JFK    | LAX  |          1447 |         16.72
+ LAS    | LAX  |          1438 |         12.20
+ LAX    | JFK  |          1380 |         14.20
+(10 rows)
+*/
