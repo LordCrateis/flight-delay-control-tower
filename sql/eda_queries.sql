@@ -378,3 +378,131 @@ LIMIT 20;
  MIA    |         15723 |         18.32
 (20 rows)
 */
+
+-----------------------------------------------------------------
+----- CATEGORY 3 : TIME PATTERNS (SEASON, DAY, HOUR) -----
+-----------------------------------------------------------------
+
+-- Q1. What's the average delay by month (seasonality)?
+SELECT EXTRACT(MONTH FROM "FlightDate") AS month,
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY month
+ORDER BY month;
+
+/*OUTPUT
+ month | total_flights | avg_dep_delay
+-------+---------------+---------------
+     1 |        129745 |         11.12
+     2 |        121834 |         11.38
+     3 |        142663 |         12.49
+     4 |        138913 |         13.25
+     5 |        144787 |         12.46
+     6 |        143083 |         15.90
+     7 |        149204 |         14.65
+(7 rows)
+*/
+
+-- Q2. What's the average delay by day of week?
+SELECT TO_CHAR("FlightDate"::date, 'Day') AS day_of_week,
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY day_of_week, EXTRACT(DOW FROM "FlightDate"::date)
+ORDER BY EXTRACT(DOW FROM "FlightDate"::date);
+
+/*OUTPUT
+ day_of_week | total_flights | avg_dep_delay
+-------------+---------------+---------------
+ Sunday      |        144375 |         15.00
+ Monday      |        142865 |         13.14
+ Tuesday     |        133999 |          8.94
+ Wednesday   |        135798 |          9.47
+ Thursday    |        142918 |         13.81
+ Friday      |        143868 |         15.83
+ Saturday    |        126406 |         15.34
+(7 rows)
+*/
+
+-- Q3. What's the average delay by hour of scheduled departure (rush hour effect)?
+SELECT FLOOR("CRSDepTime" / 100) AS scheduled_hour,
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY scheduled_hour
+ORDER BY scheduled_hour;
+
+/*OUTPUT
+ scheduled_hour | total_flights | avg_dep_delay
+----------------+---------------+---------------
+              0 |          1991 |         15.94
+              1 |           513 |         13.89
+              2 |           230 |         17.65
+              3 |           177 |          7.14
+              4 |            84 |         20.08
+              5 |         23885 |          5.30
+              6 |         68399 |          5.67
+              7 |         64694 |          6.07
+              8 |         66594 |          6.77
+              9 |         55623 |          7.81
+             10 |         63372 |          8.92
+             11 |         60405 |         10.40
+             12 |         59172 |         11.04
+             13 |         60038 |         12.94
+             14 |         56367 |         14.55
+             15 |         56451 |         15.93
+             16 |         55206 |         17.06
+             17 |         59995 |         18.40
+             18 |         58066 |         19.23
+             19 |         50367 |         21.78
+             20 |         44523 |         21.46
+             21 |         31398 |         21.57
+             22 |         25101 |         20.36
+             23 |          7578 |         17.49
+(24 rows)
+*/
+
+-- Q4. Which month has the highest cancellation rate?
+SELECT EXTRACT(MONTH FROM "FlightDate"::date) AS month,
+       COUNT(*) AS total_flights,
+       COUNT(*) FILTER (WHERE "Cancelled" = true) AS cancelled_flights,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE "Cancelled" = true) / COUNT(*), 2) AS cancellation_rate_pct
+FROM flights
+GROUP BY month
+ORDER BY month;
+
+/*OUTPUT
+ month | total_flights | cancelled_flights | cancellation_rate_pct
+-------+---------------+-------------------+-----------------------
+     1 |        138584 |              8938 |                  6.45
+     2 |        127414 |              5657 |                  4.44
+     3 |        144803 |              2220 |                  1.53
+     4 |        142015 |              3194 |                  2.25
+     5 |        147684 |              2990 |                  2.02
+     6 |        147562 |              4640 |                  3.14
+     7 |        151938 |              2798 |                  1.84
+(7 rows)
+*/
+
+-- Q5. Is there a difference between weekday and weekend delays?
+SELECT CASE
+         WHEN EXTRACT(DOW FROM "FlightDate"::date) IN (0, 6) THEN 'Weekend'
+         ELSE 'Weekday'
+       END AS day_type,
+       COUNT(*) AS total_flights,
+       ROUND(AVG("DepDelay")::numeric, 2) AS avg_dep_delay
+FROM flights
+WHERE "DepDelay" IS NOT NULL
+GROUP BY day_type;
+
+/*OUTPUT
+ day_type | total_flights | avg_dep_delay
+----------+---------------+---------------
+ Weekday  |        699448 |         12.31
+ Weekend  |        270781 |         15.16
+(2 rows)
+*/
