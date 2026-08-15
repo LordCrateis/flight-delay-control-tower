@@ -68,6 +68,7 @@
 - **Volume does not equal delay** at both the airport level (Category 2, Q5) and the route level (Category 4, Q5) — this rules out a naive "busier = worse" assumption and points to infrastructure/regional factors instead.
 - **Time-of-day (Category 3) is the cleanest, most consistent pattern** found across all 20 queries — a near-monotonic climb through the day, dropping overnight.
 
+
 ## Data Note
 
 This Kaggle subset does not include per-cause delay breakdown columns (`CarrierDelay`, `WeatherDelay`, `NASDelay`, `SecurityDelay`, `LateAircraftDelay`) present in the full BTS dataset. Delay-cause analysis was not possible with this schema; delay composition (e.g. ground vs. air time via `TaxiOut`/`TaxiIn`) was left for the Python EDA phase.
