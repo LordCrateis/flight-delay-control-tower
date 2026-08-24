@@ -19,7 +19,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 
-load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv()
 
 
 class DashboardDatabaseError(RuntimeError):
@@ -55,7 +55,8 @@ def _read(sql: str, params: dict | None = None) -> pd.DataFrame:
     try:
         with get_engine().connect() as connection:
             return pd.read_sql_query(text(sql), connection, params=params or {})
-    except SQLAlchemyError as exc:
+    except (SQLAlchemyError, pd.errors.DatabaseError) as exc:
+        print("DATABASE ERROR:", repr(exc))
         raise DashboardDatabaseError(
             "PostgreSQL is unavailable. Check DATABASE_URL (or PGHOST, PGPORT, "
             "PGDATABASE, PGUSER, and PGPASSWORD), then refresh this page."
@@ -63,6 +64,8 @@ def _read(sql: str, params: dict | None = None) -> pd.DataFrame:
 
 
 def _airlines_tuple(airlines: Iterable[str] | None) -> tuple[str, ...]:
+    if isinstance(airlines, str):
+        airlines = [airlines]
     return tuple(sorted(a for a in (airlines or []) if a))
 
 
@@ -73,9 +76,12 @@ def _where(
     month: int | None = None,
 ) -> tuple[str, dict]:
     clauses = [
-        '"FlightDate"::date BETWEEN CAST(:start_date AS date) AND CAST(:end_date AS date)'
+        'CAST("FlightDate" AS text) BETWEEN :start_date AND :end_date'
     ]
-    params: dict[str, object] = {"start_date": start_date, "end_date": end_date}
+    params: dict[str, object] = {
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+    }
 
     if airlines:
         airline_params = []
@@ -293,13 +299,12 @@ def route_metrics(
         params,
     )
 
-
 def parse_filter_store(data: dict | None) -> tuple[str, str, tuple[str, ...]]:
     data = data or {}
     if data.get("start_date") and data.get("end_date"):
         return (
-            data["start_date"],
-            data["end_date"],
+            str(data["start_date"]),
+            str(data["end_date"]),
             _airlines_tuple(data.get("airlines")),
         )
 
