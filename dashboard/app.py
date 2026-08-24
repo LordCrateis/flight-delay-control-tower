@@ -7,7 +7,7 @@ import os
 from dash import Dash, Input, Output, State, callback, dcc, html, page_container, page_registry
 import dash_bootstrap_components as dbc
 
-from db import filter_metadata_safe
+from db import DashboardDatabaseError, filter_metadata_safe, overview_data, parse_filter_store
 
 
 metadata, database_available = filter_metadata_safe()
@@ -28,7 +28,7 @@ def navigation():
     for page in sorted(page_registry.values(), key=lambda item: item.get("order", 99)):
         links.append(
             dbc.NavLink(
-                [html.Span(page.get("icon", "•"), className="nav-icon"), page["name"]],
+                page["name"],
                 href=page["relative_path"],
                 className="nav-link",
                 active="exact",
@@ -51,11 +51,11 @@ app.layout = html.Div(
             [
                 html.Div(
                     [
-                        html.Div("FD", className="brand-mark"),
+                        html.Div("FIDS", className="brand-mark"),
                         html.Div(
                             [
-                                html.Strong("FlightScope"),
-                                html.Span("Analytics Console"),
+                                html.Strong("FLIGHT OPS"),
+                                html.Span("ANALYTICS DISPLAY"),
                             ],
                             className="brand-copy",
                         ),
@@ -80,6 +80,28 @@ app.layout = html.Div(
         ),
         html.Main(
             [
+                html.Div(
+                    [
+                        html.Div(
+                            [html.Span("●", className="board-dot accent"), html.Span("FLIGHTS", className="board-label"), html.Strong("—", id="board-flights", className="board-value")],
+                            className="board-metric",
+                        ),
+                        html.Div(
+                            [html.Span("●", className="board-dot good"), html.Span("ON TIME", className="board-label"), html.Strong("—", id="board-ontime", className="board-value")],
+                            className="board-metric",
+                        ),
+                        html.Div(
+                            [html.Span("●", className="board-dot warning"), html.Span("AVG DELAY", className="board-label"), html.Strong("—", id="board-delay", className="board-value")],
+                            className="board-metric",
+                        ),
+                        html.Div(
+                            [html.Span("●", className="board-dot severe"), html.Span("CANCELLED", className="board-label"), html.Strong("—", id="board-cancel", className="board-value")],
+                            className="board-metric",
+                        ),
+                        html.Div("LIVE NETWORK SUMMARY", className="board-caption"),
+                    ],
+                    className="departure-strip",
+                ),
                 html.Header(
                     [
                         html.Div(
@@ -111,10 +133,7 @@ app.layout = html.Div(
                             ],
                             className="filter-control airline-control",
                         ),
-                        html.Div(
-                            [html.Span("1M", className="sample-number"), html.Span("sample rows")],
-                            className="sample-badge",
-                        ),
+                        html.Div("BTS · 2022 SAMPLE", className="dataset-label"),
                     ],
                     className="topbar",
                 ),
@@ -142,6 +161,29 @@ def sync_global_filters(start_date, end_date, airlines, current):
         "end_date": end_date or metadata["max_date"],
         "airlines": airlines or [],
     }
+
+
+@callback(
+    Output("board-flights", "children"),
+    Output("board-ontime", "children"),
+    Output("board-delay", "children"),
+    Output("board-cancel", "children"),
+    Input("global-filter-store", "data"),
+)
+def update_departure_strip(filter_data):
+    start_date, end_date, airlines = parse_filter_store(filter_data)
+    try:
+        kpis, *_ = overview_data(start_date, end_date, airlines)
+    except DashboardDatabaseError:
+        return "—", "—", "—", "—"
+
+    row = kpis.iloc[0]
+    return (
+        f"{int(row.total_flights):,}",
+        f"{row.on_time_pct:.1f}%",
+        f"{row.avg_arr_delay:.1f} MIN",
+        f"{row.cancellation_rate:.2f}%",
+    )
 
 
 if __name__ == "__main__":
