@@ -5,10 +5,10 @@ from dash import Input, Output, callback, dash_table, dcc, html
 import plotly.graph_objects as go
 
 from db import DashboardDatabaseError, airport_metrics, parse_filter_store
-from pages.common import COLORS, empty_figure, error_banner, graph, page_header, panel, style_figure
+from pages.common import COLORS, empty_figure, error_banner, graph, loading_figure, page_header, panel, style_figure
 
 
-dash.register_page(__name__, path="/airports", name="Airports", order=2, icon="◎")
+dash.register_page(__name__, path="/airports", name="Airports", order=2)
 
 layout = html.Div(
     [
@@ -47,8 +47,8 @@ layout = html.Div(
         html.Div(id="airport-status"),
         html.Div(
             [
-                panel("Worst average delay", graph(empty_figure(), "airport-delay"), "Top 20 qualifying airports"),
-                panel("Highest cancellation rate", graph(empty_figure(), "airport-cancel"), "Top 20 qualifying airports"),
+                panel("Worst average delay", graph(loading_figure(), "airport-delay", height=500), "Top 20 qualifying airports"),
+                panel("Highest cancellation rate", graph(loading_figure(), "airport-cancel", height=500), "Top 20 qualifying airports"),
                 panel(
                     "Sortable airport table",
                     dash_table.DataTable(
@@ -58,8 +58,8 @@ layout = html.Div(
                         page_action="native",
                         page_size=15,
                         style_table={"overflowX": "auto"},
-                        style_header={"backgroundColor": COLORS["panel_alt"], "color": COLORS["text"], "fontWeight": 600, "border": "none"},
-                        style_cell={"backgroundColor": COLORS["panel"], "color": COLORS["text"], "border": "none", "borderBottom": f"1px solid {COLORS['grid']}", "padding": "12px", "fontFamily": "Inter, sans-serif"},
+                        style_header={"backgroundColor": COLORS["panel"], "color": COLORS["text"], "fontWeight": 600, "border": f"1px solid {COLORS['border']}", "fontFamily": "Space Grotesk, sans-serif"},
+                        style_cell={"backgroundColor": COLORS["panel"], "color": COLORS["text"], "border": "none", "borderBottom": f"1px solid {COLORS['border']}", "padding": "12px", "fontFamily": "IBM Plex Mono, monospace"},
                         style_filter={"backgroundColor": COLORS["background"], "color": COLORS["text"], "border": "none"},
                     ),
                     "Use the built-in filters to find a specific airport",
@@ -84,14 +84,21 @@ layout = html.Div(
 )
 def update_airports(filter_data, role, minimum_flights):
     start_date, end_date, airlines = parse_filter_store(filter_data)
+    role = role if role in {"origin", "destination"} else "origin"
     try:
-        frame = airport_metrics(start_date, end_date, airlines, role, int(minimum_flights))
+        minimum_flights = max(0, int(minimum_flights))
+    except (TypeError, ValueError):
+        minimum_flights = 500
+    try:
+        frame = airport_metrics(start_date, end_date, airlines, role, minimum_flights)
     except DashboardDatabaseError as exc:
         blank = empty_figure("Connect PostgreSQL to load airport analytics")
         return error_banner(str(exc)), blank, blank, [], []
 
     if frame.empty:
-        blank = empty_figure()
+        blank = empty_figure(
+            f"No airports meet the {minimum_flights:,}-flight threshold"
+        )
         return "", blank, blank, [], []
 
     def rank(column, color, title):
@@ -103,7 +110,7 @@ def update_airports(filter_data, role, minimum_flights):
             hovertemplate="%{y}<br>%{x:.2f}" + ("%" if "rate" in column else " min") + "<br>%{customdata[0]:,.0f} flights<extra></extra>",
         ))
         fig.update_layout(xaxis_title=title, yaxis_title=None)
-        return style_figure(fig, height=470)
+        return style_figure(fig, height=500)
 
     table = frame.copy()
     for column in ["avg_delay", "cancellation_rate", "on_time_pct"]:
@@ -118,7 +125,7 @@ def update_airports(filter_data, role, minimum_flights):
     return (
         "",
         rank("avg_delay", COLORS["warning"], "Average delay (minutes)"),
-        rank("cancellation_rate", COLORS["warning"], "Cancellation rate (%)"),
+        rank("cancellation_rate", COLORS["severe"], "Cancellation rate (%)"),
         table.to_dict("records"),
         columns,
     )

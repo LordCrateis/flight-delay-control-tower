@@ -5,10 +5,10 @@ from dash import Input, Output, callback, html
 import plotly.graph_objects as go
 
 from db import DashboardDatabaseError, overview_data, parse_filter_store
-from pages.common import COLORS, empty_figure, error_banner, graph, kpi_card, page_header, panel, style_figure
+from pages.common import COLORS, empty_figure, error_banner, graph, kpi_card, loading_figure, page_header, panel, style_figure
 
 
-dash.register_page(__name__, path="/", name="Overview", order=0, icon="⌂")
+dash.register_page(__name__, path="/", name="Overview", order=0)
 
 layout = html.Div(
     [
@@ -23,18 +23,18 @@ layout = html.Div(
             [
                 panel(
                     "Monthly reliability",
-                    graph(empty_figure(), "overview-trend"),
+                    graph(loading_figure(), "overview-trend", height=400),
                     "Average arrival delay with on-time performance",
                     "panel-wide",
                 ),
                 panel(
                     "Worst carriers",
-                    graph(empty_figure(), "overview-airlines"),
+                    graph(loading_figure(), "overview-airlines", height=350),
                     "Top five by average arrival delay",
                 ),
                 panel(
                     "Problem origins",
-                    graph(empty_figure(), "overview-airports"),
+                    graph(loading_figure(), "overview-airports", height=350),
                     "Top five by average departure delay",
                 ),
             ],
@@ -59,9 +59,9 @@ def update_overview(filter_data):
     except DashboardDatabaseError as exc:
         cards = [
             kpi_card("Total flights", "—", "Waiting for database"),
-            kpi_card("On-time", "—", "Arrival within 15 min"),
+            kpi_card("On-time", "—", "Arrival within 15 min", "good"),
             kpi_card("Avg delay", "—", "Arrival minutes", "warning"),
-            kpi_card("Cancelled", "—", "Share of scheduled flights", "warning"),
+            kpi_card("Cancelled", "—", "Share of scheduled flights", "severe"),
         ]
         blank = empty_figure("Connect PostgreSQL to load analytics")
         return error_banner(str(exc)), cards, blank, blank, blank
@@ -69,9 +69,9 @@ def update_overview(filter_data):
     row = kpis.iloc[0]
     cards = [
         kpi_card("Total flights", f"{int(row.total_flights):,}", f"{start_date} → {end_date}"),
-        kpi_card("On-time", f"{row.on_time_pct:.1f}%", "Arrival within 15 minutes"),
+        kpi_card("On-time", f"{row.on_time_pct:.1f}%", "Arrival within 15 minutes", "good"),
         kpi_card("Avg arrival delay", f"{row.avg_arr_delay:.1f} min", "Completed flights", "warning"),
-        kpi_card("Cancellation rate", f"{row.cancellation_rate:.2f}%", "All scheduled flights", "warning"),
+        kpi_card("Cancellation rate", f"{row.cancellation_rate:.2f}%", "All scheduled flights", "severe"),
     ]
 
     trend_fig = go.Figure()
@@ -93,7 +93,7 @@ def update_overview(filter_data):
         yaxis2={"title": "On-time %", "overlaying": "y", "side": "right", "showgrid": False},
         hovermode="x unified",
     )
-    style_figure(trend_fig, height=370)
+    style_figure(trend_fig, height=400)
 
     def ranking_figure(frame):
         ordered = frame.sort_values("avg_delay", ascending=True)
@@ -104,6 +104,6 @@ def update_overview(filter_data):
             hovertemplate="%{y}<br>%{x:.1f} min<br>%{customdata[0]:,.0f} flights<extra></extra>",
         ))
         fig.update_layout(xaxis_title="Average delay (minutes)", yaxis_title=None)
-        return style_figure(fig, height=330)
+        return style_figure(fig, height=350)
 
     return "", cards, trend_fig, ranking_figure(carriers), ranking_figure(airports)

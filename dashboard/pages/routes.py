@@ -5,10 +5,10 @@ from dash import Input, Output, callback, dcc, html
 import plotly.graph_objects as go
 
 from db import DashboardDatabaseError, parse_filter_store, route_metrics
-from pages.common import COLORS, empty_figure, error_banner, graph, page_header, panel, style_figure
+from pages.common import COLORS, empty_figure, error_banner, graph, loading_figure, page_header, panel, style_figure
 
 
-dash.register_page(__name__, path="/routes", name="Routes", order=4, icon="↗")
+dash.register_page(__name__, path="/routes", name="Routes", order=4)
 
 layout = html.Div(
     [
@@ -44,9 +44,9 @@ layout = html.Div(
                     ],
                     className="insight-callout",
                 ),
-                panel("Busiest routes", graph(empty_figure(), "route-busiest"), "Top 15 by scheduled flight volume"),
-                panel("Worst-delay routes", graph(empty_figure(), "route-delay"), "Top 15 qualifying routes by departure delay"),
-                panel("Highest cancellation routes", graph(empty_figure(), "route-cancel"), "Top 15 qualifying routes by cancellation rate", "panel-wide"),
+                panel("Busiest routes", graph(loading_figure(), "route-busiest", height=470), "Top 15 by scheduled flight volume"),
+                panel("Worst-delay routes", graph(loading_figure(), "route-delay", height=470), "Top 15 qualifying routes by departure delay"),
+                panel("Highest cancellation routes", graph(loading_figure(), "route-cancel", height=470), "Top 15 qualifying routes by cancellation rate", "panel-wide"),
             ],
             className="dashboard-grid routes-grid",
         ),
@@ -65,13 +65,19 @@ layout = html.Div(
 def update_routes(filter_data, minimum_flights):
     start_date, end_date, airlines = parse_filter_store(filter_data)
     try:
-        frame = route_metrics(start_date, end_date, airlines, int(minimum_flights))
+        minimum_flights = max(0, int(minimum_flights))
+    except (TypeError, ValueError):
+        minimum_flights = 200
+    try:
+        frame = route_metrics(start_date, end_date, airlines, minimum_flights)
     except DashboardDatabaseError as exc:
         blank = empty_figure("Connect PostgreSQL to load route analytics")
         return error_banner(str(exc)), blank, blank, blank
 
     if frame.empty:
-        blank = empty_figure()
+        blank = empty_figure(
+            f"No routes meet the {minimum_flights:,}-flight threshold"
+        )
         return "", blank, blank, blank
 
     def rank(column, title, limit=15):
@@ -85,7 +91,7 @@ def update_routes(filter_data, minimum_flights):
             hovertemplate=f"%{{y}}<br>%{{x:.2f}}{suffix}<br>%{{customdata[0]:,.0f}} flights<extra></extra>",
         ))
         fig.update_layout(xaxis_title=title, yaxis_title=None)
-        return style_figure(fig, height=440)
+        return style_figure(fig, height=470)
 
     return (
         "",

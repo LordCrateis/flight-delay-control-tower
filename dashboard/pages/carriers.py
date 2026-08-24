@@ -7,10 +7,10 @@ from dash import Input, Output, callback, ctx, dcc, html
 import plotly.graph_objects as go
 
 from db import DashboardDatabaseError, carrier_metrics, parse_filter_store
-from pages.common import COLORS, empty_figure, error_banner, graph, page_header, panel, style_figure
+from pages.common import COLORS, empty_figure, error_banner, graph, loading_figure, page_header, panel, style_figure
 
 
-dash.register_page(__name__, path="/carriers", name="Carriers", order=1, icon="✈")
+dash.register_page(__name__, path="/carriers", name="Carriers", order=1)
 
 layout = html.Div(
     [
@@ -42,9 +42,9 @@ layout = html.Div(
         html.Div(id="carrier-status"),
         html.Div(
             [
-                panel("Average arrival delay", graph(empty_figure(), "carrier-delay"), "Click a carrier to focus the charts below", "panel-wide"),
-                panel("Cancellation rate", graph(empty_figure(), "carrier-cancel"), "Cancelled flights as a share of schedules"),
-                panel("On-time performance", graph(empty_figure(), "carrier-ontime"), "Arrival no more than 15 minutes late"),
+                panel("Average arrival delay", graph(loading_figure(), "carrier-delay", height=580), "Click a carrier to focus the charts below", "panel-wide"),
+                panel("Cancellation rate", graph(loading_figure(), "carrier-cancel", height=580), "Cancelled flights as a share of schedules"),
+                panel("On-time performance", graph(loading_figure(), "carrier-ontime", height=580), "Arrival no more than 15 minutes late"),
             ],
             className="dashboard-grid overview-grid",
         ),
@@ -100,7 +100,7 @@ def update_carriers(filter_data, month, focused_airline):
         hovertemplate="%{y}<br>%{x:.1f} min delay<br>%{customdata[0]:,.0f} flights<extra></extra>",
     ))
     delay_fig.update_layout(xaxis_title="Average arrival delay (minutes)", yaxis_title=None)
-    style_figure(delay_fig, height=max(420, 31 * len(frame)))
+    style_figure(delay_fig, height=580)
 
     support = frame[frame["airline"] == focused_airline] if focused_airline else frame
 
@@ -112,13 +112,13 @@ def update_carriers(filter_data, month, focused_airline):
             hovertemplate=f"%{{y}}<br>%{{x:.2f}}{suffix}<extra></extra>",
         ))
         fig.update_layout(xaxis_title=suffix.strip(), yaxis_title=None)
-        return style_figure(fig, height=max(320, 31 * len(ordered)), y_suffix="")
+        return style_figure(fig, height=580, y_suffix="")
 
     label = f"Focused carrier: {focused_airline}" if focused_airline else "Showing all carriers"
     return (
         "",
         delay_fig,
-        metric_bar("cancellation_rate", COLORS["warning"], "%"),
-        metric_bar("on_time_pct", COLORS["accent"], "%"),
+        metric_bar("cancellation_rate", COLORS["severe"], "%"),
+        metric_bar("on_time_pct", COLORS["good"], "%"),
         label,
     )
