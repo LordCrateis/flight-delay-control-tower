@@ -1,5 +1,12 @@
-matplotlib>=3.8
+dash>=2.18
+dash-bootstrap-components>=1.6
 lightgbm>=4.0
+matplotlib>=3.8
 numpy>=1.26
+pandas>=2.2
+plotly>=5.24
 polars>=1.0
+psycopg2-binary>=2.9
+python-dotenv>=1.0
 scikit-learn>=1.4
+SQLAlchemy>=2.0
